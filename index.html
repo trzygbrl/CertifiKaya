@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      /* Minimalist, Blue-Accented CSS */
+      body {
+        font-family: 'Google Sans', Roboto, Arial, sans-serif;
+        padding: 15px;
+        color: #333333;
+        background-color: #f8f9fa;
+      }
+      h2 {
+        color: #1a73e8; /* Google/AUF Blue Accent */
+        font-size: 18px;
+        border-bottom: 2px solid #e8eaed;
+        padding-bottom: 10px;
+        margin-top: 0;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #5f6368;
+      }
+      input[type="file"], select, textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-family: inherit;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 80px;
+      }
+      .btn-primary {
+        background-color: #1a73e8;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        width: 100%;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .btn-primary:hover {
+        background-color: #1557b0;
+      }
+      .status {
+        margin-top: 15px;
+        font-size: 12px;
+        color: #1a73e8;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+
+    <h2>CertifiKaya Setup</h2>
+
+    <div class="form-group">
+      <label for="templateSelect">1. Select Certificate Template</label>
+      <select id="templateSelect">
+        <option value="upload_new">-- Upload Custom Design --</option>
+        <option value="proposed_1">Proposed Template 1</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="uploadGroup">
+      <label for="customImage">Upload Custom Design (PNG/JPG)</label>
+      <input type="file" id="customImage" accept="image/png, image/jpeg">
+    </div>
+
+    <div class="form-group">
+      <label for="emailBody">2. Edit Distribution Email Body</label>
+      <textarea id="emailBody">Good day! Attached is your certificate for attending our recent library event. Thank you for participating!</textarea>
+    </div>
+
+    <button class="btn-primary" onclick="startGeneration()">Generate & Send Certificates</button>
+
+    <div class="status" id="statusMessage"></div>
+
+    <script>
+      // Basic JavaScript to handle UI interactions
+      function startGeneration() {
+        const statusDiv = document.getElementById('statusMessage');
+        statusDiv.innerText = "Initializing generation process...";
+        statusDiv.style.color = "#1a73e8";
+        
+        // This is how the frontend talks to your Code.gs functions (Phase 4)
+        // google.script.run.withSuccessHandler(updateStatus).processCertificates();
+      }
+
+      function updateStatus(response) {
+        document.getElementById('statusMessage').innerText = response;
+      }
+    </script>
+  </body>
+</html>
