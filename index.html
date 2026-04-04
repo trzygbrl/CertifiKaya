@@ -3,6 +3,7 @@
   <head>
     <base target="_top">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
       :root {
         --primary-blue: #0066FF; 
@@ -66,7 +67,7 @@
         border-radius: 8px;
         box-sizing: border-box;
         font-family: inherit;
-        font-size: 14px;
+        font-size: 13px;
         color: var(--text-main);
         background-color: #FAFAFA;
         transition: all 0.2s ease;
@@ -205,7 +206,15 @@
         <div class="badge">Google Sheets Extension</div>
       </div>
       <h2>Certifi<span class="h2-accent">Kaya.</span></h2>
-      <div class="subtitle">Generate up to 700 certificates.</div>
+    </div>
+
+    <!-- Event Configuration Section -->
+    <div class="form-group" style="padding: 12px; background: #FFFBEB; border-radius: 8px; border: 1px solid #FEF3C7; margin-bottom: 24px;">
+      <label for="eventName">Event Name</label>
+      <input type="text" id="eventName" placeholder="e.g. Research Seminar 2026" style="margin-bottom: 12px; background: #FFFFFF;">
+      
+      <label for="eventDate">Event Date</label>
+      <input type="date" id="eventDate" style="background: #FFFFFF;">
     </div>
 
     <div class="form-group">
@@ -216,14 +225,54 @@
       </select>
     </div>
 
-    <div class="form-group" id="uploadGroup">
-      <label for="customImage">Custom Design <span style="font-weight: 400; color: #9CA3AF; text-transform: none; letter-spacing: normal;">(PNG/JPG)</span></label>
+    <div class="form-group" id="uploadGroup" style="padding: 12px; background: #F3F4F6; border-radius: 8px; border: 1px dashed #D1D5DB;">
+      <label for="templateName">Template Save Name</label>
+      <input type="text" id="templateName" placeholder="e.g. AUF Standard Layout" style="margin-bottom:12px; background: #FFFFFF;">
+
+      <label for="customImage">Custom Design <span style="font-weight: normal; color: #9CA3AF; text-transform: none; letter-spacing: normal;">(PNG/JPG)</span></label>
       <input type="file" id="customImage" accept="image/png, image/jpeg">
+      <button class="btn-secondary" id="boundsBtn" style="margin-top: 12px; border-color: #0066FF; color: #0066FF;" onclick="openTemplateEditor()">+ Select Name Boundary Area</button>
+    </div>
+
+    <!-- Data Mapping Section -->
+    <div class="form-group">
+      <label for="nameColumn">Data: Name Column</label>
+      <select id="nameColumn">
+        <option>Loading columns...</option>
+      </select>
     </div>
 
     <div class="form-group">
-      <label for="emailBody">Distribution Email Body</label>
-      <textarea id="emailBody">Good day! Attached is your certificate for attending our recent library event. Thank you for participating!</textarea>
+      <label for="emailColumn">Data: Email Column</label>
+      <select id="emailColumn">
+        <option>Loading columns...</option>
+      </select>
+    </div>
+
+    <!-- Design Section -->
+    <div style="display: flex; gap: 8px;">
+      <div class="form-group" style="flex: 1;">
+        <label for="fontSelect">Certificate Font</label>
+        <select id="fontSelect">
+          <option value="Great Vibes">Cursive (Great Vibes)</option>
+          <option value="Brush Script MT">Brush Script</option>
+          <option value="Arial">Arial</option>
+          <option value="Times New Roman">Times New Roman</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label for="formatSelect">Format</label>
+        <select id="formatSelect">
+          <option value="pdf">PDF</option>
+          <option value="png">PNG</option>
+          <option value="jpg">JPG</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Distribution Email</label>
+      <button class="btn-secondary" onclick="openEmailEditor()">Draft Email Content</button>
     </div>
 
     <button class="btn-primary" onclick="startGeneration()">Start Batch Generation</button>
@@ -238,34 +287,252 @@
       </div>
     </div>
 
+    <!-- Hidden canvas for rendering -->
+    <canvas id="renderCanvas" style="display:none;"></canvas>
+
     <script>
-      function startGeneration() {
-        const container = document.getElementById('statusContainer');
-        const statusText = document.getElementById('statusText');
-        const progressFill = document.getElementById('progressFill');
+      // State variables to hold data from modals
+      window.certificateBoundingBox = null;
+      window.customEmailBody = "Good day! Attached is your certificate for attending our recent library event.";
+      window.customEmailSubject = "Your Certificate";
+
+      // Initialize sidebar by fetching sheet headers
+      document.addEventListener("DOMContentLoaded", function() {
+        // Fetch actual headers from active sheet
+        google.script.run.withSuccessHandler(populateHeaders).getSheetHeaders();
         
-        container.style.display = "block";
-        statusText.innerText = "Initializing batch processing...";
-        progressFill.style.width = "5%";
+        // Listen to template changing to reset bounds if a custom upload is happening
+        document.getElementById('customImage').addEventListener('change', function() {
+          const boundsBtn = document.getElementById('boundsBtn');
+          boundsBtn.innerText = "+ Select Name Boundary Area";
+          boundsBtn.style.backgroundColor = "";
+          boundsBtn.style.color = "#0066FF";
+          boundsBtn.style.borderColor = "#0066FF";
+          google.script.run.clearBounds();
+        });
+
+        // Setup polling for bounds check since modals sandbox doesn't share state
+        setInterval(() => {
+          google.script.run.withSuccessHandler(config => {
+            if(config && config.bounds) {
+              const boundsBtn = document.getElementById('boundsBtn');
+              boundsBtn.innerText = "✅ Area Selected (Edit)";
+              boundsBtn.style.backgroundColor = "#F0FDF4";
+              boundsBtn.style.color = "#166534";
+              boundsBtn.style.borderColor = "#BBF7D0";
+            }
+          }).getGenerationConfig();
+        }, 3000);
+      });
+
+      function populateHeaders(headers) {
+        const nameSelect = document.getElementById('nameColumn');
+        const emailSelect = document.getElementById('emailColumn');
+        nameSelect.innerHTML = '';
+        emailSelect.innerHTML = '';
         
-        // Mock progress for UI demonstration based on PRD
-        setTimeout(() => {
-          statusText.innerText = "Processing 14 of 700 (2%)";
-          progressFill.style.width = "2%";
-        }, 1000);
-        
-        // Frontend to Apps Script actual integration
-        // google.script.run.withSuccessHandler(updateStatus).processCertificates();
+        headers.forEach(header => {
+          nameSelect.add(new Option(header, header));
+          emailSelect.add(new Option(header, header));
+        });
       }
 
-      function updateStatus(response) {
-        document.getElementById('statusText').innerText = response;
+      function openTemplateEditor() {
+        const fileInput = document.getElementById('customImage');
+        if (!fileInput.files[0]) {
+          alert("Please select an image file first.");
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          google.script.run.openTemplateEditor(e.target.result);
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      }
+
+      function openEmailEditor() {
+        google.script.run.openEmailEditor();
+      }
+
+      function startGeneration() {
+        const evName = document.getElementById('eventName').value;
+        const evDate = document.getElementById('eventDate').value;
+        const fileInput = document.getElementById('customImage');
+        const tmpName = document.getElementById('templateName').value;
+        
+        if (!evName || !evDate) {
+          alert("Please fill in the Event Name and Event Date.");
+          return;
+        }
+
+        if (document.getElementById('templateSelect').value === "upload_new" && !fileInput.files[0]) {
+          alert("Please upload your custom design template first.");
+          return;
+        }
+
+        const container = document.getElementById('statusContainer');
+        const statusText = document.getElementById('statusText');
+        
+        container.style.display = "block";
+        statusText.innerText = "Uploading template and initializing Database Event...";
+        
+        // Setup template and event via backend
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const base64img = e.target.result;
+          
+          google.script.run.withSuccessHandler(ids => {
+            if(ids.error) {
+              alert(ids.error);
+              container.style.display = "none";
+              return;
+            }
+            // IDS returned = { eventId: X, templateId: Y }
+            statusText.innerText = "Loading configurations...";
+            
+            // Fetch bounds and email draft
+            google.script.run.withSuccessHandler(config => {
+              if (!config.bounds) {
+                alert("No name area selected. Please click 'Select Name Boundary Area'.");
+                container.style.display = "none";
+                return;
+              }
+              const bounds = JSON.parse(config.bounds);
+              const emailDraft = config.emailDraft ? JSON.parse(config.emailDraft) : { subject: "Your Certificate", body: "Attached." };
+              
+              statusText.innerText = "Extracting spreadsheet data...";
+              
+              // Fetch sheet data
+              google.script.run.withSuccessHandler(data => {
+                if (data.length === 0) {
+                  alert("No data found in the spreadsheet.");
+                  container.style.display = "none";
+                  return;
+                }
+                
+                // Build the processing image loop
+                const img = new Image();
+                img.onload = () => {
+                  processBatch(data, bounds, emailDraft, img, ids.eventId, evName, evDate);
+                };
+                img.src = base64img;
+                
+              }).getSheetData();
+            }).getGenerationConfig();
+            
+          }).initializeEvent(evName, evDate, base64img, tmpName || "Custom Template");
+        };
+        
+        if(fileInput.files[0]) {
+          reader.readAsDataURL(fileInput.files[0]);
+        }
+      }
+
+      async function processBatch(data, bounds, emailDraft, img, eventId, evName, evDate) {
+        const statusText = document.getElementById('statusText');
+        const progressFill = document.getElementById('progressFill');
+        const canvas = document.getElementById('renderCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const nameCol = document.getElementById('nameColumn').value;
+        const emailCol = document.getElementById('emailColumn').value;
+        const fontSelect = document.getElementById('fontSelect').value;
+        const format = document.getElementById('formatSelect').value;
+        
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Calculate bounded box in pixel coordinates for the original image
+        const boxX = bounds.x * img.width;
+        const boxY = bounds.y * img.height;
+        const boxW = bounds.w * img.width;
+        const boxH = bounds.h * img.height;
+        
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
+          const participantName = row[nameCol] || "Unknown Participant";
+          const participantEmail = row[emailCol] || "";
+          const collegeProgram = row['College/Program'] || "N/A"; // Adjust based on dynamic headers if needed
+          
+          // UI Progress
+          statusText.innerText = `Processing ${i+1} of ${data.length}...`;
+          progressFill.style.width = Math.round(((i+1)/data.length)*100) + "%";
+          
+          // 1. Clear & Draw Image
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          
+          // 2. Draw Text (Centered in bounding box)
+          ctx.fillStyle = "#000000"; // Assuming black text for certificates
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          
+          // Heuristic font sizing: Try to make it fit the box height loosely
+          let fontSize = boxH * 0.6; 
+          ctx.font = `${fontSize}px "${fontSelect}", sans-serif`;
+          
+          // Find center of box
+          const centerX = boxX + (boxW / 2);
+          const centerY = boxY + (boxH / 2);
+          
+          ctx.fillText(participantName, centerX, centerY, boxW); // max width enforces squishing instead of overflow
+          
+          // 3. Export to base64
+          let dataUrl = "";
+          if (format === 'pdf') {
+            const tempPng = canvas.toDataURL('image/png', 1.0);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+              orientation: canvas.width > canvas.height ? "landscape" : "portrait",
+              unit: "px",
+              format: [canvas.width, canvas.height]
+            });
+            pdf.addImage(tempPng, 'PNG', 0, 0, canvas.width, canvas.height);
+            dataUrl = pdf.output('datauristring'); // Sends native application/pdf base64
+          } else {
+            const exportMime = `image/${format === 'jpg' ? 'jpeg' : format}`;
+            dataUrl = canvas.toDataURL(exportMime);
+          }
+          
+          // 4. Send to Backend
+          const payload = {
+            base64Data: dataUrl,
+            format: format,
+            participantName: participantName,
+            participantEmail: participantEmail,
+            collegeProgram: collegeProgram,
+            subject: emailDraft.subject,
+            body: emailDraft.body,
+            eventId: eventId, // Pass initialized Event ID to bind logs appropriately
+            eventName: evName,
+            eventDate: evDate
+          };
+          
+          // Wait for backend processing before moving to next (to prevent quotas)
+          try {
+            await new Promise((resolve, reject) => {
+               google.script.run
+                 .withSuccessHandler(resolve)
+                 .withFailureHandler(reject)
+                 .processAndSaveCertificate(payload);
+            });
+          } catch(err) {
+            alert(`Row ${i+1} processing failed! Error: ` + err.message);
+            statusText.innerText = `Error: Halting batch. See Row ${i+1}.`;
+            return; // Abort the loop if a fatal error occurs
+          }
+        }
+        
+        statusText.innerText = "Generation Complete!";
+        progressFill.style.backgroundColor = "#10B981"; // Success Green
       }
       
       function viewLogs() {
-        // Based on PRD section 3.5: Generation Log
-        // This would open a modal or new tab with the sorted/filtered logs
-        alert("This will open the advanced Sorting & Filtering Generation Logs interface.");
+        // Opens the deployed Web App to fulfill PRD section 3.5: Generation Log
+        // Note: Deployment has been explicitly pinned to Google Script Live App Hash @2
+        const webAppUrl = "https://script.google.com/macros/s/AKfycbxg0slgEhd90JP6mn1k68_TGS8CMqqQ1XalxIIrwsdjHEBebDUYWiTyECS49oMTlAOO/exec";
+        window.open(webAppUrl, '_blank');
       }
       
       document.getElementById('templateSelect').addEventListener('change', function(e) {
