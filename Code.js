@@ -147,45 +147,55 @@ function getOrCreateUserAccount(conn, email) {
 }
 
 // Sets up the DB records before batch generation
-function initializeEvent(eventName, eventDate, base64img, templateName) {
+function initializeEvent(eventName, eventDate, base64img, templateName, existingTemplateId) {
   const scriptProperties = PropertiesService.getScriptProperties();
   const dbPassword = scriptProperties.getProperty('dbpassword');
   if (!dbPassword) return { error: "Database not configured." };
 
   const userEmail = Session.getActiveUser().getEmail() || "anonymous@example.com";
-
-  // Save custom template to drive to get a URL link
-  let templateLink = "";
-  try {
-    const dataParts = base64img.split(',');
-    const bytes = Utilities.base64Decode(dataParts[1] || dataParts[0]);
-    const mimeType = 'image/png'; // Assuming upload is strictly image
-    const blob = Utilities.newBlob(bytes, mimeType, templateName + ".png");
-    const tFolder = DriveApp.createFolder("CertifiKaya_Templates_" + userEmail); // Try catch for folder exists skipped for brevity
-    templateLink = tFolder.createFile(blob).getUrl();
-  } catch (e) { }
-
   const url = `jdbc:mysql://mysql-18e17a2d-certifikaya.g.aivencloud.com:12448/defaultdb`;
 
   try {
     const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
     const userId = getOrCreateUserAccount(conn, userEmail);
 
-    // Insert Template
-    let tStmt = conn.prepareStatement("INSERT INTO certificate_templates (template_name, file_path, uploaded_by) VALUES (?, ?, ?)", Jdbc.Statement.RETURN_GENERATED_KEYS);
-    tStmt.setString(1, templateName);
-    tStmt.setString(2, templateLink);
-    tStmt.setInt(3, userId);
-    tStmt.executeUpdate();
-    let keys = tStmt.getGeneratedKeys();
-    let templateId = -1;
-    if (keys.next()) templateId = keys.getInt(1);
+    let templateId = existingTemplateId;
+
+    if (!templateId) {
+      // Save custom template to drive to get a URL link
+      let templateLink = "";
+      try {
+        const dataParts = base64img.split(',');
+        const bytes = Utilities.base64Decode(dataParts[1] || dataParts[0]);
+        const mimeType = 'image/png'; // Assuming upload is strictly image
+        const blob = Utilities.newBlob(bytes, mimeType, templateName + ".png");
+
+        const folderName = "CertifiKaya_Templates_" + userEmail;
+        let tFolder;
+        const folders = DriveApp.getFoldersByName(folderName);
+        if (folders.hasNext()) {
+          tFolder = folders.next();
+        } else {
+          tFolder = DriveApp.createFolder(folderName);
+        }
+        templateLink = tFolder.createFile(blob).getUrl();
+      } catch (e) { Logger.log("Drive Upload Error: " + e.message); }
+
+      // Insert Template
+      let tStmt = conn.prepareStatement("INSERT INTO certificate_templates (template_name, file_path, uploaded_by) VALUES (?, ?, ?)", Jdbc.Statement.RETURN_GENERATED_KEYS);
+      tStmt.setString(1, templateName);
+      tStmt.setString(2, templateLink);
+      tStmt.setInt(3, userId);
+      tStmt.executeUpdate();
+      let keys = tStmt.getGeneratedKeys();
+      if (keys.next()) templateId = keys.getInt(1);
+    }
 
     // Insert Event
     let eStmt = conn.prepareStatement("INSERT INTO events (event_name, event_date, template_id, created_by) VALUES (?, ?, ?, ?)", Jdbc.Statement.RETURN_GENERATED_KEYS);
     eStmt.setString(1, eventName);
     eStmt.setString(2, eventDate);
-    eStmt.setInt(3, templateId);
+    eStmt.setInt(3, templateId || null);
     eStmt.setInt(4, userId);
     eStmt.executeUpdate();
     let eKeys = eStmt.getGeneratedKeys();
@@ -199,6 +209,7 @@ function initializeEvent(eventName, eventDate, base64img, templateName) {
     return { error: "DB Err: " + e.message };
   }
 }
+
 
 function logToDatabase(eventId, name, email, program, fileLink, status) {
   const scriptProperties = PropertiesService.getScriptProperties();
@@ -447,4 +458,63 @@ function testDatabaseConnection() {
   } catch (err) {
     Logger.log("Connection Failed: " + err.message);
   }
+}
+
+// Fetch templates uploaded by current user
+function getUserTemplates() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const dbPassword = scriptProperties.getProperty('dbpassword');
+  if (!dbPassword) return [];
+  const userEmail = Session.getActiveUser().getEmail() || "anonymous@example.com";
+  const url = `jdbc:mysql://mysql-18e17a2d-certifikaya.g.aivencloud.com:12448/defaultdb`;
+
+  const results = [];
+  try {
+    const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
+    let stmt = conn.prepareStatement(
+      "SELECT t.template_id, t.template_name " +
+      "FROM certificate_templates t " +
+      "JOIN users u ON t.uploaded_by = u.user_id " +
+      "WHERE u.google_email = ? " +
+      "ORDER BY t.upload_timestamp DESC"
+    );
+    stmt.setString(1, userEmail);
+    let rs = stmt.executeQuery();
+    while (rs.next()) {
+      results.push({ id: rs.getInt(1), name: rs.getString(2) });
+    }
+    conn.close();
+  } catch (e) { Logger.log(e); }
+  return results;
+}
+
+// Fetch base64 string of an existing template from Drive
+function getTemplateBase64(templateId) {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const dbPassword = scriptProperties.getProperty('dbpassword');
+  const url = `jdbc:mysql://mysql-18e17a2d-certifikaya.g.aivencloud.com:12448/defaultdb`;
+  let fileUrl = "";
+  try {
+    const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
+    let stmt = conn.prepareStatement("SELECT file_path FROM certificate_templates WHERE template_id = ?");
+    stmt.setInt(1, templateId);
+    let rs = stmt.executeQuery();
+    if (rs.next()) {
+       fileUrl = rs.getString(1);
+    }
+    conn.close();
+  } catch(e) { Logger.log(e); }
+
+  if (!fileUrl) return null;
+
+  const match = fileUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (match && match[1]) {
+    try {
+      const file = DriveApp.getFileById(match[1]);
+      const bytes = file.getBlob().getBytes();
+      const b64 = Utilities.base64Encode(bytes);
+      return "data:" + file.getMimeType() + ";base64," + b64;
+    } catch(e) { Logger.log(e); }
+  }
+  return null;
 }

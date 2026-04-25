@@ -23,9 +23,10 @@ The AUF University Library frequently organizes seminars and camps to enhance st
 - The solution must be developed exclusively as an extension for Google Sheets.
 - The user interface must be displayed as a sidebar on the right side of the screen.
 - The system will act as an extension and not a separate application.
-- Access to the system must be managed entirely through Google Login.
-- No custom login form is required.
+- Access to the main extension must be managed entirely through Google Login.
+- No custom login form is required for generating certificates.
 - The authentication system must allow different library staff members to log in and use their respective email addresses as the sender of the certificates.
+- The standalone logs dashboard must be protected by a password gate, allowing any authorized staff member with the password to view all system-wide records.
 
 ## 3.2. Data Source & Processing
 
@@ -47,7 +48,8 @@ The AUF University Library frequently organizes seminars and camps to enhance st
 
 ## 3.5. Tracking, Reporting & Sorting
 
-- The system must implement a centralized 'Generation Log' with real-time status tracking.
+- The system must implement a centralized 'Generation Log' with real-time status tracking via a standalone web dashboard.
+- The dashboard must be protected by a password gate that, upon successful entry, allows users to view **ALL** system logs, events, and templates globally, overcoming the default Google account email data scoping.
 - Library staff must be able to immediately identify and re-process specific failed entries without manual data re-entry.
 - The system must generate a report capturing specific data points: processing timestamp, issue timestamp, recipient name, recipient email, college/program, the direct link to the stored certificate, and the exact delivery status.
 - The database must implement a sorting mechanism that allows users to filter logs based on the colleges or programs involved.
