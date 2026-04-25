@@ -64,6 +64,16 @@ function openTemplateEditor(base64Data) {
   SpreadsheetApp.getUi().showModalDialog(html, 'Select Name Area');
 }
 
+// Opens the Certificate Preview Modal
+function openPreviewDialog(base64Data) {
+  const template = HtmlService.createTemplateFromFile('preview_modal');
+  template.imageData = base64Data;
+  const html = template.evaluate()
+    .setWidth(900)
+    .setHeight(650);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Certificate Preview');
+}
+
 // Save bounding box coordinates from modal to User Properties for this session
 function saveBoundingBox(boundsStr) {
   PropertiesService.getUserProperties().setProperty('cert_bounds', boundsStr);
@@ -265,7 +275,7 @@ function fetchAllGenerationLogs() {
   try {
     const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
     const stmt = conn.prepareStatement(
-      "SELECT p.full_name, p.college_program, l.processing_timestamp, l.certificate_link, l.delivery_status, u.google_email " +
+      "SELECT p.full_name, p.college_program, l.processing_timestamp, l.certificate_link, l.delivery_status, u.google_email, p.event_id " +
       "FROM generation_logs l " +
       "JOIN participants p ON l.participant_id = p.participant_id " +
       "JOIN users u ON l.processed_by = u.user_id " +
@@ -279,7 +289,8 @@ function fetchAllGenerationLogs() {
         timestamp: rs.getString(3),
         link: rs.getString(4),
         status: rs.getString(5),
-        processedBy: rs.getString(6)
+        processedBy: rs.getString(6),
+        eventId: rs.getInt(7)
       });
     }
     conn.close();
@@ -297,15 +308,15 @@ function fetchAllEvents() {
   try {
     const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
     const stmt = conn.prepareStatement(
-      "SELECT e.event_name, e.event_date, t.template_name, u.google_email " +
+      "SELECT e.event_id, e.event_name, e.event_date, t.template_name, u.google_email " +
       "FROM events e " +
-      "JOIN certificate_templates t ON e.template_id = t.template_id " +
+      "LEFT JOIN certificate_templates t ON e.template_id = t.template_id " +
       "JOIN users u ON e.created_by = u.user_id " +
       "ORDER BY e.event_date DESC LIMIT 200"
     );
     const rs = stmt.executeQuery();
     while (rs.next()) {
-      results.push({ name: rs.getString(1), date: rs.getString(2), template: rs.getString(3), createdBy: rs.getString(4) });
+      results.push({ id: rs.getInt(1), name: rs.getString(2), date: rs.getString(3), template: rs.getString(4), createdBy: rs.getString(5) });
     }
     conn.close();
   } catch (e) { Logger.log(e); }
@@ -322,14 +333,14 @@ function fetchAllTemplates() {
   try {
     const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
     const stmt = conn.prepareStatement(
-      "SELECT t.template_name, t.upload_timestamp, t.file_path, u.google_email " +
+      "SELECT t.template_id, t.template_name, t.upload_timestamp, t.file_path, u.google_email " +
       "FROM certificate_templates t " +
       "JOIN users u ON t.uploaded_by = u.user_id " +
       "ORDER BY t.upload_timestamp DESC LIMIT 200"
     );
     const rs = stmt.executeQuery();
     while (rs.next()) {
-      results.push({ name: rs.getString(1), date: rs.getString(2), link: rs.getString(3), uploadedBy: rs.getString(4) });
+      results.push({ id: rs.getInt(1), name: rs.getString(2), date: rs.getString(3), link: rs.getString(4), uploadedBy: rs.getString(5) });
     }
     conn.close();
   } catch (e) { Logger.log(e); }
@@ -432,6 +443,81 @@ function fetchTemplates() {
     conn.close();
   } catch (e) { Logger.log(e); }
   return results;
+}
+
+function deleteEvent(eventId) {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const dbPassword = scriptProperties.getProperty('dbpassword');
+  const url = `jdbc:mysql://mysql-18e17a2d-certifikaya.g.aivencloud.com:12448/defaultdb`;
+  try {
+    const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
+    
+    // Optional: Delete logs and participants associated with the event to avoid foreign key constraints
+    let stmt1 = conn.prepareStatement("DELETE FROM generation_logs WHERE participant_id IN (SELECT participant_id FROM participants WHERE event_id = ?)");
+    stmt1.setInt(1, eventId);
+    stmt1.executeUpdate();
+    
+    let stmt2 = conn.prepareStatement("DELETE FROM participants WHERE event_id = ?");
+    stmt2.setInt(1, eventId);
+    stmt2.executeUpdate();
+    
+    // Delete event
+    let stmt3 = conn.prepareStatement("DELETE FROM events WHERE event_id = ?");
+    stmt3.setInt(1, eventId);
+    stmt3.executeUpdate();
+    
+    conn.close();
+    return true;
+  } catch (e) {
+    Logger.log("Delete Event Error: " + e.message);
+    return false;
+  }
+}
+
+function deleteTemplate(templateId) {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const dbPassword = scriptProperties.getProperty('dbpassword');
+  const url = `jdbc:mysql://mysql-18e17a2d-certifikaya.g.aivencloud.com:12448/defaultdb`;
+  try {
+    const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
+    
+    // First, fetch the file link to delete from Drive
+    let fileLink = null;
+    let getStmt = conn.prepareStatement("SELECT file_path FROM certificate_templates WHERE template_id = ?");
+    getStmt.setInt(1, templateId);
+    let rs = getStmt.executeQuery();
+    if (rs.next()) {
+      fileLink = rs.getString(1);
+    }
+    
+    // Update events to null out the template before deleting to prevent constraint errors
+    let uStmt = conn.prepareStatement("UPDATE events SET template_id = NULL WHERE template_id = ?");
+    uStmt.setInt(1, templateId);
+    uStmt.executeUpdate();
+    
+    // Delete from DB
+    let stmt = conn.prepareStatement("DELETE FROM certificate_templates WHERE template_id = ?");
+    stmt.setInt(1, templateId);
+    stmt.executeUpdate();
+    conn.close();
+    
+    // Try to delete from Drive
+    if (fileLink) {
+      const match = fileLink.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (match && match[1]) {
+        try {
+          DriveApp.getFileById(match[1]).setTrashed(true);
+        } catch (e) {
+          Logger.log("Error trashing file from Drive: " + e.message);
+        }
+      }
+    }
+    
+    return true;
+  } catch (e) {
+    Logger.log("Delete Template Error: " + e.message);
+    return false;
+  }
 }
 
 function testDatabaseConnection() {

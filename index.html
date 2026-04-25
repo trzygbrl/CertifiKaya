@@ -3,8 +3,14 @@
 
 <head>
   <base target="_top">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Great+Vibes&family=Dancing+Script&family=Alex+Brush&family=Pinyon+Script&family=Playfair+Display&family=Montserrat&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Great+Vibes&family=Dancing+Script&family=Alex+Brush&family=Pinyon+Script&family=Playfair+Display&family=Montserrat&family=Bebas+Neue&display=swap"
+    rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
   <style>
     :root {
       --primary: #2563EB;
@@ -15,7 +21,7 @@
       --text-muted: #6B7280;
       --border: #E5E7EB;
       --radius: 12px;
-      --shadow: 0 1px 3px rgba(0,0,0,0.05);
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
     body {
@@ -37,7 +43,9 @@
       letter-spacing: -0.02em;
     }
 
-    .h2-accent { color: var(--primary); }
+    .h2-accent {
+      color: var(--primary);
+    }
 
     .card {
       background: var(--card-bg);
@@ -53,8 +61,13 @@
       border-color: #BFDBFE;
     }
 
-    .form-group { margin-bottom: 12px; }
-    .form-group:last-child { margin-bottom: 0; }
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
 
     label {
       display: block;
@@ -66,9 +79,16 @@
       letter-spacing: 0.05em;
     }
 
-    .muted-text { text-transform: none; font-weight: 400; letter-spacing: 0; }
+    .muted-text {
+      text-transform: none;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
 
-    input[type="text"], input[type="date"], select, input[type="file"] {
+    input[type="text"],
+    input[type="date"],
+    select,
+    input[type="file"] {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid var(--border);
@@ -81,7 +101,8 @@
       color: var(--text-main);
     }
 
-    input:focus, select:focus {
+    input:focus,
+    select:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -101,8 +122,14 @@
       margin-bottom: 12px;
       box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1), 0 2px 4px -1px rgba(37, 99, 235, 0.06);
     }
-    .btn-primary:active { transform: scale(0.98); }
-    .btn-primary:hover { background-color: var(--primary-hover); }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
 
     .btn-secondary {
       background-color: var(--card-bg);
@@ -116,13 +143,28 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-    .btn-secondary:hover:not(:disabled) { background-color: #F3F4F6; }
-    .btn-secondary:disabled { cursor: not-allowed; }
 
-    .flex-row { display: flex; gap: 8px; }
-    .flex-1 { flex: 1; }
+    .btn-secondary:hover:not(:disabled) {
+      background-color: #F3F4F6;
+    }
 
-    input[type="file"] { padding: 6px; }
+    .btn-secondary:disabled {
+      cursor: not-allowed;
+    }
+
+    .flex-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .flex-1 {
+      flex: 1;
+    }
+
+    input[type="file"] {
+      padding: 6px;
+    }
+
     input[type="file"]::file-selector-button {
       padding: 6px 12px;
       border-radius: 6px;
@@ -134,13 +176,43 @@
       cursor: pointer;
       margin-right: 8px;
     }
-    input[type="file"]::file-selector-button:hover { background: #E5E7EB; }
 
-    .status-container { margin-top: 16px; display: none; background: #FFFFFF; padding: 12px; border-radius: 8px; border: 1px solid #E5E7EB;}
-    .status-text { font-size: 12px; color: var(--primary); text-align: center; font-weight: 600; margin-bottom: 8px; }
-    .progress-bg { width: 100%; height: 6px; background-color: var(--border); border-radius: 999px; overflow: hidden; }
-    .progress-fill { height: 100%; background-color: var(--primary); width: 0%; transition: width 0.3s ease; }
-    
+    input[type="file"]::file-selector-button:hover {
+      background: #E5E7EB;
+    }
+
+    .status-container {
+      margin-top: 16px;
+      display: none;
+      background: #FFFFFF;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #E5E7EB;
+    }
+
+    .status-text {
+      font-size: 12px;
+      color: var(--primary);
+      text-align: center;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .progress-bg {
+      width: 100%;
+      height: 6px;
+      background-color: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: var(--primary);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
     .badge {
       display: inline-block;
       padding: 4px 8px;
@@ -184,10 +256,10 @@
     <div class="form-group" id="uploadGroup">
       <label for="templateName">Template Save Name</label>
       <input type="text" id="templateName" placeholder="e.g. AUF Standard Layout">
-      
+
       <div style="margin-top: 8px">
-        <label for="customImage">Custom Design <span class="muted-text">(PNG/JPG)</span></label>
-        <input type="file" id="customImage" accept="image/png, image/jpeg">
+        <label for="customImage">Custom Design <span class="muted-text">(PNG/JPG/PDF)</span></label>
+        <input type="file" id="customImage" accept="image/png, image/jpeg, application/pdf">
       </div>
     </div>
 
@@ -201,21 +273,21 @@
   <!-- Data Mapping Section -->
   <div class="card">
     <div class="form-group">
-      <label for="nameColumn">Data: Name Column</label>
+      <label for="nameColumn">Name</label>
       <select id="nameColumn">
         <option>Loading columns...</option>
       </select>
     </div>
 
     <div class="form-group">
-      <label for="emailColumn">Data: Email Column</label>
+      <label for="emailColumn">Email</label>
       <select id="emailColumn">
         <option>Loading columns...</option>
       </select>
     </div>
 
     <div class="form-group">
-      <label for="collegeColumn">Data: College Column</label>
+      <label for="collegeColumn">College</label>
       <select id="collegeColumn">
         <option>Loading columns...</option>
       </select>
@@ -235,9 +307,32 @@
         <option value="Montserrat" style="font-family: 'Montserrat'">Sans: Montserrat</option>
         <option value="Arial" style="font-family: Arial">Basic: Arial</option>
         <option value="Times New Roman" style="font-family: 'Times New Roman'">Basic: Times New Roman</option>
+        <option value="Bebas Neue" style="font-family: 'Bebas Neue'">Display: Bebas Neue Cyrillic</option>
       </select>
     </div>
-    
+
+    <div class="form-group flex-row" style="margin-top: 8px;">
+      <label
+        style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-weight: 500;">
+        <input type="checkbox" id="fontBold" style="width: auto;"> Bold
+      </label>
+      <label
+        style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-weight: 500;">
+        <input type="checkbox" id="fontItalic" style="width: auto;"> Italic
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label for="fontColor">Font Color</label>
+      <div class="flex-row" style="align-items: center;">
+        <input type="color" id="fontColor" value="#000000"
+          style="padding: 2px; height: 38px; cursor: pointer; flex: 1; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg);"
+          oninput="document.getElementById('colorVal').innerText = this.value.toUpperCase()">
+        <span id="colorVal"
+          style="font-size: 13px; font-family: monospace; width: 60px; text-align: right; color: var(--text-muted); font-weight: 500;">#000000</span>
+      </div>
+    </div>
+
     <div class="form-group">
       <label for="formatSelect">Format</label>
       <select id="formatSelect">
@@ -246,17 +341,22 @@
         <option value="jpg">JPG</option>
       </select>
     </div>
-    
+
     <div class="form-group" style="margin-top: 12px;">
       <label>Distribution Email</label>
       <button class="btn-secondary" onclick="openEmailEditor()">Draft Email Content</button>
     </div>
   </div>
 
+  <div class="flex-row" style="margin-bottom: 12px;">
+    <button class="btn-secondary flex-1" onclick="previewCertificate()">Preview Certificate</button>
+  </div>
+
   <button class="btn-primary" onclick="startGeneration()">Start Batch Generation</button>
 
   <!-- Link to the Generation Logs PRD Requirement -->
-  <button class="btn-secondary" style="border: none; background: transparent; color: var(--primary);" onclick="viewLogs()">View Generation Logs ↗</button>
+  <button class="btn-secondary" style="border: none; background: transparent; color: var(--primary);"
+    onclick="viewLogs()">View Generation Logs ↗</button>
 
   <div class="status-container" id="statusContainer">
     <div class="status-text" id="statusText">Processing 0 of 0...</div>
@@ -333,12 +433,53 @@
       }
     }
 
+    async function processSelectedFile(file, boundsBtn) {
+      if (!file) return;
+      boundsBtn.innerText = "Processing file...";
+
+      if (file.type === 'application/pdf') {
+        const fileReader = new FileReader();
+        fileReader.onload = async function () {
+          try {
+            const typedarray = new Uint8Array(this.result);
+            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+            const page = await pdf.getPage(1);
+            const scale = 2.0;
+            const viewport = page.getViewport({ scale: scale });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+            window.currentTemplateBase64 = canvas.toDataURL('image/png');
+            boundsBtn.disabled = false;
+            boundsBtn.style.opacity = "1";
+            boundsBtn.innerText = "+ Select Name Boundary Area";
+          } catch (err) {
+            alert("Error reading PDF: " + err.message);
+            boundsBtn.innerText = "+ Select Name Boundary Area";
+          }
+        };
+        fileReader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = function (evt) {
+          window.currentTemplateBase64 = evt.target.result;
+          boundsBtn.disabled = false;
+          boundsBtn.style.opacity = "1";
+          boundsBtn.innerText = "+ Select Name Boundary Area";
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
     // Handles template dropdown changes
     document.getElementById('templateSelect').addEventListener('change', function (e) {
       const val = e.target.value;
       const uploadGroup = document.getElementById('uploadGroup');
       const boundsBtn = document.getElementById('boundsBtn');
-      
+
       // Reset styling & State
       boundsBtn.disabled = true;
       boundsBtn.style.opacity = "0.5";
@@ -352,18 +493,12 @@
       if (val === 'upload_new') {
         uploadGroup.style.display = 'block';
         if (document.getElementById('customImage').files[0]) {
-          const reader = new FileReader();
-          reader.onload = evt => { 
-            window.currentTemplateBase64 = evt.target.result; 
-            boundsBtn.disabled = false; 
-            boundsBtn.style.opacity = "1"; 
-          };
-          reader.readAsDataURL(document.getElementById('customImage').files[0]);
+          processSelectedFile(document.getElementById('customImage').files[0], boundsBtn);
         }
       } else {
         uploadGroup.style.display = 'none';
         boundsBtn.innerText = "Loading Template from Drive...";
-        
+
         // Fetch existing template base64
         google.script.run.withSuccessHandler(b64 => {
           if (b64) {
@@ -391,16 +526,77 @@
       google.script.run.clearBounds();
       window.currentTemplateBase64 = null;
 
-      if (e.target.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          window.currentTemplateBase64 = evt.target.result;
-          boundsBtn.disabled = false;
-          boundsBtn.style.opacity = "1";
-        };
-        reader.readAsDataURL(e.target.files[0]);
-      }
+      processSelectedFile(e.target.files[0], boundsBtn);
     });
+
+    async function previewCertificate() {
+      if (!window.currentTemplateBase64) {
+        alert("Please load a template first.");
+        return;
+      }
+
+      const container = document.getElementById('statusContainer');
+      const statusText = document.getElementById('statusText');
+
+      container.style.display = "block";
+      statusText.innerText = "Generating Preview...";
+
+      await document.fonts.ready;
+
+      google.script.run.withSuccessHandler(config => {
+        if (!config || !config.bounds) {
+          alert("No name area selected. Please click 'Select Name Boundary Area'.");
+          container.style.display = "none";
+          return;
+        }
+
+        const bounds = JSON.parse(config.bounds);
+        const fontSelect = document.getElementById('fontSelect').value;
+        const fontColor = document.getElementById('fontColor').value;
+        const fontBold = document.getElementById('fontBold').checked ? 'bold ' : '';
+        const fontItalic = document.getElementById('fontItalic').checked ? 'italic ' : '';
+
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          ctx.drawImage(img, 0, 0);
+          ctx.fillStyle = fontColor;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+
+          const boxX = bounds.x * img.width;
+          const boxY = bounds.y * img.height;
+          const boxW = bounds.w * img.width;
+          const boxH = bounds.h * img.height;
+
+          const testFontSize = 100;
+          ctx.font = `${fontBold}${fontItalic}${testFontSize}px "${fontSelect}", sans-serif`;
+          const testWidth = ctx.measureText("Juan Dela Cruz").width;
+
+          const sizeForWidth = (boxW / testWidth) * testFontSize;
+          const optimalSize = Math.min(boxH, sizeForWidth) * 0.95;
+
+          ctx.font = `${fontBold}${fontItalic}${optimalSize}px "${fontSelect}", sans-serif`;
+
+          const centerX = boxX + (boxW / 2);
+          const centerY = boxY + (boxH / 2);
+
+          ctx.fillText("Juan Dela Cruz", centerX, centerY);
+
+          const dataUrl = canvas.toDataURL('image/png');
+
+          container.style.display = "none";
+          google.script.run.openPreviewDialog(dataUrl);
+        };
+        img.src = window.currentTemplateBase64;
+
+      }).getGenerationConfig();
+    }
 
     function openTemplateEditor() {
       if (!window.currentTemplateBase64) {
@@ -429,7 +625,7 @@
         alert("Please prepare a template first (upload or select one).");
         return;
       }
-      
+
       if (tSelect === "upload_new" && !tmpName) {
         alert("Please provide a Template Save Name for your new upload.");
         return;
@@ -490,6 +686,9 @@
       const nameCol = document.getElementById('nameColumn').value;
       const emailCol = document.getElementById('emailColumn').value;
       const fontSelect = document.getElementById('fontSelect').value;
+      const fontColor = document.getElementById('fontColor').value;
+      const fontBold = document.getElementById('fontBold').checked ? 'bold ' : '';
+      const fontItalic = document.getElementById('fontItalic').checked ? 'italic ' : '';
       const format = document.getElementById('formatSelect').value;
 
       canvas.width = img.width;
@@ -499,7 +698,7 @@
       const boxY = bounds.y * img.height;
       const boxW = bounds.w * img.width;
       const boxH = bounds.h * img.height;
-      
+
       const collegeCol = document.getElementById('collegeColumn').value;
 
       await document.fonts.ready;
@@ -516,14 +715,14 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
 
-        ctx.fillStyle = "#000000"; 
+        ctx.fillStyle = fontColor;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
         // Dynamic Font Sizing Algorithm
         // Start with a large test font size
         const testFontSize = 100;
-        ctx.font = `${testFontSize}px "${fontSelect}", sans-serif`;
+        ctx.font = `${fontBold}${fontItalic}${testFontSize}px "${fontSelect}", sans-serif`;
         const testWidth = ctx.measureText(participantName).width;
 
         // Calculate maximum font size that fits exactly into the box width
@@ -533,7 +732,7 @@
         // Apply a 5% padding so it naturally looks centered and breathes within the box
         const optimalSize = Math.min(boxH, sizeForWidth) * 0.95;
 
-        ctx.font = `${optimalSize}px "${fontSelect}", sans-serif`;
+        ctx.font = `${fontBold}${fontItalic}${optimalSize}px "${fontSelect}", sans-serif`;
 
         const centerX = boxX + (boxW / 2);
         const centerY = boxY + (boxH / 2);
@@ -580,7 +779,7 @@
         } catch (err) {
           alert(`Row ${i + 1} processing failed! Error: ` + err.message);
           statusText.innerText = `Error: Halting batch. See Row ${i + 1}.`;
-          return; 
+          return;
         }
       }
 

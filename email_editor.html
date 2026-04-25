@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <base target="_top">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
@@ -11,16 +12,20 @@
       background: #F3F4F6;
       color: #111827;
     }
+
     .form-group {
       margin-bottom: 20px;
     }
+
     label {
       display: block;
       font-size: 13px;
       font-weight: 500;
       margin-bottom: 8px;
     }
-    input[type="text"], textarea {
+
+    input[type="text"],
+    textarea {
       width: 100%;
       padding: 12px;
       border: 1px solid #D1D5DB;
@@ -29,16 +34,19 @@
       font-family: inherit;
       font-size: 14px;
     }
+
     textarea {
       resize: vertical;
       min-height: 200px;
     }
+
     .btn-container {
       display: flex;
       justify-content: flex-end;
       gap: 12px;
       margin-top: 24px;
     }
+
     .btn {
       padding: 10px 16px;
       border-radius: 6px;
@@ -47,15 +55,18 @@
       cursor: pointer;
       border: none;
     }
+
     .btn-primary {
       background: #0066FF;
       color: white;
     }
+
     .btn-secondary {
       background: #FFFFFF;
       border: 1px solid #D1D5DB;
       color: #374151;
     }
+
     .help-text {
       font-size: 11px;
       color: #6B7280;
@@ -63,6 +74,7 @@
     }
   </style>
 </head>
+
 <body>
 
   <h2>Draft Distribution Email</h2>
@@ -89,13 +101,14 @@ Attached is your certificate for attending our recent library event. Thank you f
     function saveEmail() {
       const subject = document.getElementById('emailSubject').value;
       const body = document.getElementById('emailBody').value;
-      
+
       const draft = { subject: subject, body: body };
-      
+
       google.script.run.withSuccessHandler(() => {
         google.script.host.close();
       }).saveEmailDraft(JSON.stringify(draft));
     }
   </script>
 </body>
+
 </html>
