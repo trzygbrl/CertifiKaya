@@ -81,14 +81,12 @@
 
   <div class="form-group">
     <label for="emailSubject">Subject Line</label>
-    <input type="text" id="emailSubject" value="Your Certificate of Participation">
+    <input type="text" id="emailSubject" value="Loading...">
   </div>
 
   <div class="form-group">
     <label for="emailBody">Email Body</label>
-    <textarea id="emailBody">Good day! 
-
-Attached is your certificate for attending our recent library event. Thank you for participating!</textarea>
+    <textarea id="emailBody">Loading...</textarea>
     <div class="help-text">The generated certificate file will automatically be attached to this email.</div>
   </div>
 
@@ -98,6 +96,24 @@ Attached is your certificate for attending our recent library event. Thank you f
   </div>
 
   <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      google.script.run.withSuccessHandler(function (config) {
+        if (config && config.emailDraft) {
+          const draft = JSON.parse(config.emailDraft);
+          if (draft.subject) {
+            document.getElementById('emailSubject').value = draft.subject
+          } else {
+            document.getElementById('emailSubject').value = "Your Certificate of Participation";
+          }
+          if (draft.body) {
+            document.getElementById('emailBody').value = draft.body;
+          } else {
+            document.getElementById('emailSubject').value = "Good day! Attached is your certificate for attending our recent library event. Thank you for participating!";
+          }
+        }
+      }).getGenerationConfig();
+    });
+
     function saveEmail() {
       const subject = document.getElementById('emailSubject').value;
       const body = document.getElementById('emailBody').value;
