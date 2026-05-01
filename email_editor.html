@@ -24,8 +24,7 @@
       margin-bottom: 8px;
     }
 
-    input[type="text"],
-    textarea {
+    input[type="text"] {
       width: 100%;
       padding: 12px;
       border: 1px solid #D1D5DB;
@@ -35,9 +34,46 @@
       font-size: 14px;
     }
 
-    textarea {
-      resize: vertical;
+    .rich-editor {
+      width: 100%;
       min-height: 200px;
+      padding: 12px;
+      border: 1px solid #cccccc;
+      border-radius: 0 0 8px 8px;
+      background: white;
+      color: #111827;
+      box-sizing: border-box;
+      font-size: 14px;
+      overflow-y: auto;
+    }
+
+    .rich-editor:focus {
+      outline: none;
+      border-color: #17a2b8;
+    }
+
+    .editor-toolbar {
+      background: #f3f4f6;
+      border: 1px solid #cccccc;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      padding: 6px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .toolbar-btn {
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #111827;
+    }
+
+    .toolbar-btn:hover {
+      background: #e5e7eb;
     }
 
     .btn-container {
@@ -85,8 +121,12 @@
   </div>
 
   <div class="form-group">
-    <label for="emailBody">Email Body</label>
-    <textarea id="emailBody">Loading...</textarea>
+    <label>Email Body</label>
+    <div class="editor-toolbar">
+      <button type="button" class="toolbar-btn" onclick="formatText('bold')" title="Bold"><b>B</b></button>
+      <button type="button" class="toolbar-btn" onclick="formatText('italic')" title="Italic"><i>I</i></button>
+    </div>
+    <div id="emailBody" contenteditable="true" class="rich-editor">Loading...</div>
     <div class="help-text">The generated certificate file will automatically be attached to this email.</div>
   </div>
 
@@ -106,17 +146,22 @@
             document.getElementById('emailSubject').value = "Your Certificate of Participation";
           }
           if (draft.body) {
-            document.getElementById('emailBody').value = draft.body;
+            document.getElementById('emailBody').innerHTML = draft.body;
           } else {
-            document.getElementById('emailSubject').value = "Good day! Attached is your certificate for attending our recent library event. Thank you for participating!";
+            document.getElementById('emailSubject').innerHTML = "Good day! Attached is your certificate for attending our recent library event. Thank you for participating!";
           }
         }
       }).getGenerationConfig();
     });
 
+    function formatText(command) {
+      document.execCommand(command, false, null);
+      document.getElementById('emailBody').focus();
+    }
+
     function saveEmail() {
       const subject = document.getElementById('emailSubject').value;
-      const body = document.getElementById('emailBody').value;
+      const body = document.getElementById('emailBody').innerHTML;
 
       const draft = { subject: subject, body: body };
 
