@@ -13,12 +13,12 @@
   </script>
   <style>
     :root {
-      --primary: #2563EB;
-      --primary-hover: #1D4ED8;
-      --bg: #F9FAFB;
-      --card-bg: #FFFFFF;
-      --text-main: #111827;
-      --text-muted: #6B7280;
+      --primary: #2EE2F1;
+      --primary-btn-color: #16AFE4;
+      --bg: #0078D7;
+      --card-bg: #17A2B8;
+      --text-main: #FFFFFF;
+      --text-muted: #E6E6E6;
       --border: #E5E7EB;
       --radius: 12px;
       --shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -34,6 +34,12 @@
 
     .header {
       margin-bottom: 20px;
+      padding: 16px 20px;
+      border: 1px solid #FFFFFF;
+      border-radius: 12px 0px 12px 0px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     h2 {
@@ -57,7 +63,7 @@
     }
 
     .card-highlight {
-      background: #EFF6FF;
+      background: #2CC5BF;
       border-color: #BFDBFE;
     }
 
@@ -109,7 +115,7 @@
     }
 
     .btn-primary {
-      background-color: var(--primary);
+      background-color: var(--primary-btn-color);
       color: white;
       border: none;
       padding: 12px;
@@ -128,7 +134,7 @@
     }
 
     .btn-primary:hover {
-      background-color: var(--primary-hover);
+      background-color: var(--primary);
     }
 
     .btn-secondary {
@@ -145,7 +151,7 @@
     }
 
     .btn-secondary:hover:not(:disabled) {
-      background-color: #F3F4F6;
+      background-color: #2CC5BF;
     }
 
     .btn-secondary:disabled {
@@ -396,7 +402,7 @@
         google.script.run.withSuccessHandler(config => {
           if (config && config.bounds && window.currentTemplateBase64) {
             const btn = document.getElementById('boundsBtn');
-            btn.innerText = "✅ Area Selected (Edit)";
+            btn.innerText = "☑️ Area Selected (Edit)";
             btn.style.backgroundColor = "#ECFDF5";
             btn.style.color = "#059669";
             btn.style.borderColor = "#A7F3D0";
