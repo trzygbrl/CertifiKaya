@@ -1,11 +1,7 @@
 {
-  "timeZone": "Asia/Manila",
-  "dependencies": {},
-  "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8",
-  "webapp": {
-    "executeAs": "USER_DEPLOYING",
-    "access": "ANYONE"
+  "timeZone": "America/New_York",
+  "dependencies": {
   },
-  "chat": {}
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8"
 }
