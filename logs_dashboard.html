@@ -106,6 +106,37 @@
 
       <!-- EVENTS LIST VIEW -->
       <div id="view-events" class="view active">
+        <button id="toggleFilterBtn" class="btn-primary" style="margin-bottom: 16px; width: auto; display: flex; align-items: center; gap: 8px; background: #FFFFFF; color: #374151; border: 1px solid #D1D5DB;" onclick="document.getElementById('filterContainer').style.display = document.getElementById('filterContainer').style.display === 'none' ? 'block' : 'none';">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+          Filter & Sort Events
+        </button>
+        <div id="filterContainer" style="display: none; background: #FFFFFF; padding: 16px 20px; border-radius: 8px; border: 1px solid #E5E7EB; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+          <strong style="display:block; margin-bottom:12px; color:#374151; font-size:14px;">Filter Options:</strong>
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="eventSearch" placeholder="Search events..." oninput="renderEvents()" style="padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 6px; width: 220px; font-family: inherit; font-size: 13px; outline: none;">
+            <select id="eventSort" onchange="renderEvents()" style="padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: #FFF;">
+              <option value="newest">Sort: Newest First</option>
+              <option value="oldest">Sort: Oldest First</option>
+              <option value="az">Sort: A-Z</option>
+              <option value="za">Sort: Z-A</option>
+            </select>
+            <select id="eventMonthFilter" onchange="renderEvents()" style="padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 6px; font-family: inherit; font-size: 13px; outline: none; background: #FFF;">
+              <option value="all">All Months</option>
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+        </div>
         <div class="grid" id="eventsGrid">
           <p>Loading events...</p>
         </div>
@@ -137,6 +168,7 @@
             <thead>
               <tr>
                 <th>Participant Name</th>
+                <th>Email Address</th>
                 <th>College / Program</th>
                 <th>Processing Time</th>
                 <th>File Link</th>
@@ -219,11 +251,38 @@
     function renderEvents() {
       const grid = document.getElementById('eventsGrid');
       grid.innerHTML = '';
-      if (allEvents.length === 0) {
+
+      let filteredEvents = [...allEvents];
+      
+      const search = document.getElementById('eventSearch') ? document.getElementById('eventSearch').value.toLowerCase() : '';
+      const sort = document.getElementById('eventSort') ? document.getElementById('eventSort').value : 'newest';
+      const month = document.getElementById('eventMonthFilter') ? document.getElementById('eventMonthFilter').value : 'all';
+
+      if (search) {
+        filteredEvents = filteredEvents.filter(e => e.name.toLowerCase().includes(search));
+      }
+
+      if (month !== 'all') {
+        filteredEvents = filteredEvents.filter(e => {
+          if (!e.date) return false;
+          const m = e.date.split('-')[1];
+          return m === month;
+        });
+      }
+
+      filteredEvents.sort((a, b) => {
+        if (sort === 'newest') return new Date(b.date) - new Date(a.date);
+        if (sort === 'oldest') return new Date(a.date) - new Date(b.date);
+        if (sort === 'az') return a.name.localeCompare(b.name);
+        if (sort === 'za') return b.name.localeCompare(a.name);
+        return 0;
+      });
+
+      if (filteredEvents.length === 0) {
         grid.innerHTML = '<p>No events found.</p>';
         return;
       }
-      allEvents.forEach(ev => {
+      filteredEvents.forEach(ev => {
         const div = document.createElement('div');
         div.className = 'card';
         div.onclick = (e) => {
@@ -291,9 +350,12 @@
       document.getElementById('view-events').style.display = 'block';
     }
 
+    let currentDynHeadersArr = [];
+
     function updateCurrentEventDetails() {
       if (!currentEvent) return;
       const tbody = document.getElementById('eventLogsBody');
+      const thead = document.querySelector('#eventLogsTable thead tr');
       tbody.innerHTML = '';
       
       const eventLogs = allLogs.filter(l => l.eventId === currentEvent.id);
@@ -303,15 +365,52 @@
         return;
       }
 
-      eventLogs.forEach(log => {
+      let dynamicHeaders = new Set();
+      const parsedLogs = eventLogs.map(log => {
+        let college = log.college || '—';
+        let extra = {};
+        try {
+          let str = log.college;
+          if (typeof str === 'string') {
+             if (str.startsWith('"') && str.endsWith('"')) {
+                str = JSON.parse(str); 
+             }
+             const parsed = JSON.parse(str);
+             if (parsed && typeof parsed === 'object' && parsed.college !== undefined) {
+                college = parsed.college || '—';
+                extra = parsed.extra || {};
+                Object.keys(extra).forEach(k => dynamicHeaders.add(k));
+             }
+          }
+        } catch(e) {}
+        return { ...log, collegeDisplay: college, extra: extra };
+      });
+
+      currentDynHeadersArr = Array.from(dynamicHeaders);
+
+      thead.innerHTML = `
+        <th>Participant Name</th>
+        <th>Email Address</th>
+        <th>College / Program</th>
+        ${currentDynHeadersArr.map(h => `<th>${h}</th>`).join('')}
+        <th>Processing Time</th>
+        <th>File Link</th>
+        <th>Delivery Status</th>
+      `;
+
+      parsedLogs.forEach(log => {
         const linkHtml = log.link ? `<a href="${log.link}" class="link" target="_blank">View Certificate</a>` : 'N/A';
         const statusClass = log.status === 'Sent' ? 'status-sent' : log.status === 'Failed' ? 'status-failed' : 'status-pending';
         const ts = log.timestamp ? new Date(log.timestamp.replace(' ', 'T')).toLocaleString() : '—';
         
+        let dynCells = currentDynHeadersArr.map(h => `<td>${log.extra[h] || '—'}</td>`).join('');
+
         tbody.insertAdjacentHTML('beforeend', `
           <tr>
             <td>${log.name || '—'}</td>
-            <td>${log.college || '—'}</td>
+            <td>${log.email || '—'}</td>
+            <td>${log.collegeDisplay}</td>
+            ${dynCells}
             <td>${ts}</td>
             <td>${linkHtml}</td>
             <td><span class="${statusClass}">${log.status}</span></td>
@@ -324,6 +423,25 @@
       if (!currentEvent) return;
       const eventLogs = allLogs.filter(l => l.eventId === currentEvent.id);
       
+      const parsedLogs = eventLogs.map(log => {
+        let college = log.college || '—';
+        let extra = {};
+        try {
+          let str = log.college;
+          if (typeof str === 'string') {
+             if (str.startsWith('"') && str.endsWith('"')) {
+                str = JSON.parse(str); 
+             }
+             const parsed = JSON.parse(str);
+             if (parsed && typeof parsed === 'object' && parsed.college !== undefined) {
+                college = parsed.college || '—';
+                extra = parsed.extra || {};
+             }
+          }
+        } catch(e) {}
+        return { ...log, collegeDisplay: college, extra: extra };
+      });
+      
       if (type === 'pdf') {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -334,16 +452,19 @@
         doc.text(`Date: ${currentEvent.date}`, 14, 30);
         doc.text(`Total Participants: ${eventLogs.length}`, 14, 36);
         
-        const tableData = eventLogs.map(l => [
+        const head = [['Participant Name', 'Email', 'College/Program', ...currentDynHeadersArr, 'Processing Time', 'Status']];
+        const tableData = parsedLogs.map(l => [
           l.name || '',
-          l.college || '',
-          l.status || '',
-          l.timestamp ? new Date(l.timestamp.replace(' ', 'T')).toLocaleString() : ''
+          l.email || '',
+          l.collegeDisplay || '',
+          ...currentDynHeadersArr.map(h => l.extra[h] || ''),
+          l.timestamp ? new Date(l.timestamp.replace(' ', 'T')).toLocaleString() : '',
+          l.status || ''
         ]);
         
         doc.autoTable({
           startY: 45,
-          head: [['Participant Name', 'College/Program', 'Status', 'Timestamp']],
+          head: head,
           body: tableData,
         });
         
@@ -355,14 +476,16 @@
           <p><strong>Date:</strong> ${currentEvent.date}</p>
           <p><strong>Total Participants:</strong> ${eventLogs.length}</p>
           <table border="1" style="border-collapse:collapse; width:100%;">
-            <tr><th>Participant Name</th><th>College/Program</th><th>Status</th><th>Timestamp</th></tr>`;
+            <tr><th>Participant Name</th><th>Email</th><th>College/Program</th>${currentDynHeadersArr.map(h => `<th>${h}</th>`).join('')}<th>Processing Time</th><th>Status</th></tr>`;
         
-        eventLogs.forEach(l => {
+        parsedLogs.forEach(l => {
           html += `<tr>
             <td>${l.name || ''}</td>
-            <td>${l.college || ''}</td>
-            <td>${l.status || ''}</td>
+            <td>${l.email || ''}</td>
+            <td>${l.collegeDisplay || ''}</td>
+            ${currentDynHeadersArr.map(h => `<td>${l.extra[h] || ''}</td>`).join('')}
             <td>${l.timestamp ? new Date(l.timestamp.replace(' ', 'T')).toLocaleString() : ''}</td>
+            <td>${l.status || ''}</td>
           </tr>`;
         });
         

@@ -123,7 +123,7 @@ function processAndSaveCertificate(payload) {
       MailApp.sendEmail({
         to: participantEmail,
         subject: subject || "Your Certificate",
-        body: body || "Attached is your certificate. Thank you!",
+        htmlBody: body || "Attached is your certificate. Thank you!",
         attachments: [blob]
       });
       deliveryStatus = 'Sent';
@@ -275,7 +275,7 @@ function fetchAllGenerationLogs() {
   try {
     const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
     const stmt = conn.prepareStatement(
-      "SELECT p.full_name, p.college_program, l.processing_timestamp, l.certificate_link, l.delivery_status, u.google_email, p.event_id " +
+      "SELECT p.full_name, p.email_address, p.college_program, l.processing_timestamp, l.certificate_link, l.delivery_status, u.google_email, p.event_id " +
       "FROM generation_logs l " +
       "JOIN participants p ON l.participant_id = p.participant_id " +
       "JOIN users u ON l.processed_by = u.user_id " +
@@ -285,12 +285,13 @@ function fetchAllGenerationLogs() {
     while (rs.next()) {
       results.push({
         name: rs.getString(1),
-        college: rs.getString(2),
-        timestamp: rs.getString(3),
-        link: rs.getString(4),
-        status: rs.getString(5),
-        processedBy: rs.getString(6),
-        eventId: rs.getInt(7)
+        email: rs.getString(2),
+        college: rs.getString(3),
+        timestamp: rs.getString(4),
+        link: rs.getString(5),
+        status: rs.getString(6),
+        processedBy: rs.getString(7),
+        eventId: rs.getInt(8)
       });
     }
     conn.close();
@@ -366,7 +367,7 @@ function fetchGenerationLogs() {
     const conn = Jdbc.getConnection(url, 'avnadmin', dbPassword);
 
     let stmt = conn.prepareStatement(
-      "SELECT p.full_name, p.college_program, l.processing_timestamp, l.certificate_link, l.delivery_status " +
+      "SELECT p.full_name, p.email_address, p.college_program, l.processing_timestamp, l.certificate_link, l.delivery_status " +
       "FROM generation_logs l " +
       "JOIN participants p ON l.participant_id = p.participant_id " +
       "JOIN users u ON l.processed_by = u.user_id " +
@@ -379,10 +380,11 @@ function fetchGenerationLogs() {
     while (rs.next()) {
       results.push({
         name: rs.getString(1),
-        college: rs.getString(2),
-        timestamp: rs.getString(3),
-        link: rs.getString(4),
-        status: rs.getString(5)
+        email: rs.getString(2),
+        college: rs.getString(3),
+        timestamp: rs.getString(4),
+        link: rs.getString(5),
+        status: rs.getString(6)
       });
     }
     conn.close();

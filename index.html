@@ -299,6 +299,10 @@
         <option>Loading columns...</option>
       </select>
     </div>
+
+    <div id="dynamicColumnsContainer"></div>
+    <button class="btn-secondary" onclick="addDynamicColumn()" style="margin-top: 8px; border-style: dashed;">+ Add
+      Column</button>
   </div>
 
   <!-- Design Section -->
@@ -315,7 +319,15 @@
         <option value="Arial" style="font-family: Arial">Basic: Arial</option>
         <option value="Times New Roman" style="font-family: 'Times New Roman'">Basic: Times New Roman</option>
         <option value="Bebas Neue" style="font-family: 'Bebas Neue'">Display: Bebas Neue Cyrillic</option>
+        <option value="custom" style="font-family: Arial">Upload Custom Font (.ttf / .otf)</option>
       </select>
+    </div>
+
+    <div class="form-group" id="customFontGroup" style="display: none; margin-top: 8px;">
+      <label for="customFontFile">Custom Font File</label>
+      <input type="file" id="customFontFile" accept=".ttf,.otf">
+      <p style="font-size: 10px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; text-transform: none;">
+        Select a local .ttf or .otf file. This will install the font for your certificate generation.</p>
     </div>
 
     <div class="form-group flex-row" style="margin-top: 8px;">
@@ -413,6 +425,7 @@
     });
 
     function populateHeaders(headers) {
+      window.sheetHeaders = headers; // Store globally for dynamic columns
       const nameSelect = document.getElementById('nameColumn');
       const emailSelect = document.getElementById('emailColumn');
       const collegeSelect = document.getElementById('collegeColumn');
@@ -425,6 +438,25 @@
         emailSelect.add(new Option(header, header));
         collegeSelect.add(new Option(header, header));
       });
+    }
+
+    function addDynamicColumn() {
+      const container = document.getElementById('dynamicColumnsContainer');
+      const div = document.createElement('div');
+      div.className = 'form-group flex-row dyn-col-row';
+      div.style.marginTop = '12px';
+
+      let optionsHtml = '<option value="">Select Column</option>';
+      if (window.sheetHeaders) {
+        window.sheetHeaders.forEach(h => optionsHtml += `<option value="${h}">${h}</option>`);
+      }
+
+      div.innerHTML = `
+        <input type="text" placeholder="Column Name (e.g. Role)" class="dyn-col-name flex-1">
+        <select class="dyn-col-select flex-1">${optionsHtml}</select>
+        <button class="btn-secondary" style="width: auto; padding: 10px; color: #EF4444; border-color: #EF4444;" onclick="this.parentElement.remove()">✖</button>
+      `;
+      container.appendChild(div);
     }
 
     function populateTemplates(templates) {
@@ -536,6 +568,32 @@
       processSelectedFile(e.target.files[0], boundsBtn);
     });
 
+    // Handles custom font upload changes
+    document.getElementById('fontSelect').addEventListener('change', function (e) {
+      if (this.value === 'custom') {
+        document.getElementById('customFontGroup').style.display = 'block';
+        this.style.fontFamily = 'inherit';
+      } else {
+        document.getElementById('customFontGroup').style.display = 'none';
+        this.style.fontFamily = this.value;
+      }
+    });
+
+    document.getElementById('customFontFile').addEventListener('change', async function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const fontFace = new FontFace('CustomUserFont', arrayBuffer);
+        await fontFace.load();
+        document.fonts.add(fontFace);
+        document.getElementById('fontSelect').style.fontFamily = 'CustomUserFont';
+        alert("Custom font loaded successfully!");
+      } catch (err) {
+        alert("Failed to load custom font: " + err.message);
+      }
+    });
+
     async function previewCertificate() {
       if (!window.currentTemplateBase64) {
         alert("Please load a template first.");
@@ -558,7 +616,8 @@
         }
 
         const bounds = JSON.parse(config.bounds);
-        const fontSelect = document.getElementById('fontSelect').value;
+        const fontSelectRaw = document.getElementById('fontSelect').value;
+        const fontSelect = fontSelectRaw === 'custom' ? 'CustomUserFont' : fontSelectRaw;
         const fontColor = document.getElementById('fontColor').value;
         const fontBold = document.getElementById('fontBold').checked ? 'bold ' : '';
         const fontItalic = document.getElementById('fontItalic').checked ? 'italic ' : '';
@@ -672,9 +731,16 @@
               return;
             }
 
+            const dynamicCols = [];
+            document.querySelectorAll('.dyn-col-row').forEach(row => {
+              const name = row.querySelector('.dyn-col-name').value;
+              const select = row.querySelector('.dyn-col-select').value;
+              if (name && select) dynamicCols.push({ name, select });
+            });
+
             const img = new Image();
             img.onload = () => {
-              processBatch(data, bounds, emailDraft, img, ids.eventId, evName, evDate);
+              processBatch(data, bounds, emailDraft, img, ids.eventId, evName, evDate, dynamicCols);
             };
             img.src = window.currentTemplateBase64;
 
@@ -684,7 +750,7 @@
       }).initializeEvent(evName, evDate, window.currentTemplateBase64, tmpName || "Existing Template", existingId);
     }
 
-    async function processBatch(data, bounds, emailDraft, img, eventId, evName, evDate) {
+    async function processBatch(data, bounds, emailDraft, img, eventId, evName, evDate, dynamicCols) {
       const statusText = document.getElementById('statusText');
       const progressFill = document.getElementById('progressFill');
       const canvas = document.getElementById('renderCanvas');
@@ -692,7 +758,8 @@
 
       const nameCol = document.getElementById('nameColumn').value;
       const emailCol = document.getElementById('emailColumn').value;
-      const fontSelect = document.getElementById('fontSelect').value;
+      const fontSelectRaw = document.getElementById('fontSelect').value;
+      const fontSelect = fontSelectRaw === 'custom' ? 'CustomUserFont' : fontSelectRaw;
       const fontColor = document.getElementById('fontColor').value;
       const fontBold = document.getElementById('fontBold').checked ? 'bold ' : '';
       const fontItalic = document.getElementById('fontItalic').checked ? 'italic ' : '';
@@ -715,6 +782,12 @@
         const participantName = row[nameCol] || "Unknown Participant";
         const participantEmail = row[emailCol] || "";
         const collegeProgram = (collegeCol && row[collegeCol]) ? row[collegeCol] : "N/A";
+
+        const extraData = {};
+        if (dynamicCols && dynamicCols.length > 0) {
+          dynamicCols.forEach(c => extraData[c.name] = row[c.select] || "");
+        }
+        const packedCollege = JSON.stringify({ college: collegeProgram, extra: extraData });
 
         statusText.innerText = `Processing ${i + 1} of ${data.length}...`;
         progressFill.style.width = Math.round(((i + 1) / data.length) * 100) + "%";
@@ -768,7 +841,7 @@
           format: format,
           participantName: participantName,
           participantEmail: participantEmail,
-          collegeProgram: collegeProgram,
+          collegeProgram: packedCollege,
           subject: emailDraft.subject,
           body: emailDraft.body,
           eventId: eventId,
@@ -795,7 +868,7 @@
     }
 
     function viewLogs() {
-      const webAppUrl = "https://script.google.com/macros/s/AKfycbwYGz0hMSdkfpHisPQHNp3XePyXladQ7-HWyEinSMo/dev";
+      const webAppUrl = "https://script.google.com/macros/s/AKfycbz6W_DmT-OK6HnAcUvtrf4xfdRnTSsx11k-19AZVL1FnMZhFrgVb-fOkeD3imQWxe627A/exec";
       window.open(webAppUrl, '_blank');
     }
   </script>
