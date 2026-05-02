@@ -544,7 +544,6 @@
       }
 
       div.innerHTML = `
-        <input type="text" placeholder="Column Name (e.g. Role)" class="dyn-col-name flex-1">
         <select class="dyn-col-select flex-1">${optionsHtml}</select>
         <button class="btn-secondary" style="width: auto; padding: 10px; color: #EF4444; border-color: #EF4444;" onclick="this.parentElement.remove()">✖</button>
       `;
@@ -829,9 +828,8 @@
 
             const dynamicCols = [];
             document.querySelectorAll('.dyn-col-row').forEach(row => {
-              const name = row.querySelector('.dyn-col-name').value;
               const select = row.querySelector('.dyn-col-select').value;
-              if (name && select) dynamicCols.push({ name, select });
+              if (select) dynamicCols.push({ name: select, select: select });
             });
 
             const img = new Image();
@@ -872,6 +870,8 @@
       const collegeCol = document.getElementById('collegeColumn').value;
 
       await document.fonts.ready;
+
+      const failedRows = [];
 
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
@@ -954,8 +954,14 @@
           customFileName: constructedFileName,
           participantEmail: participantEmail,
           collegeProgram: packedCollege,
-          subject: emailDraft.subject,
-          body: emailDraft.body,
+          subject: emailDraft.subject.replace(/\[(.*?)\]/g, (match, colName) => {
+            if (colName.toLowerCase() === 'name') return participantName;
+            return row[colName] !== undefined ? row[colName] : match;
+          }),
+          body: emailDraft.body.replace(/(?:<span[^>]*contenteditable="false"[^>]*>)?\[(.*?)\](?:<\/span>)?/g, (match, colName) => {
+            if (colName.toLowerCase() === 'name') return participantName;
+            return row[colName] !== undefined ? row[colName] : match;
+          }),
           eventId: eventId,
           eventName: evName,
           eventDate: evDate
@@ -969,18 +975,24 @@
               .processAndSaveCertificate(payload);
           });
         } catch (err) {
-          alert(`Row ${i + 1} processing failed! Error: ` + err.message);
-          statusText.innerText = `Error: Halting batch. See Row ${i + 1}.`;
-          return;
+          failedRows.push(`Row ${i + 1} (${participantName}): ${err.message}`);
+          google.script.run.logToDatabase(eventId, participantName, participantEmail, packedCollege, "", "Failed - " + err.message);
+          continue;
         }
       }
 
-      statusText.innerText = "Generation Complete!";
-      progressFill.style.backgroundColor = "#2B3990"; // Success Blue
+      if (failedRows.length > 0) {
+        statusText.innerText = `Completed with ${failedRows.length} error(s).`;
+        progressFill.style.backgroundColor = "#EF4444"; // Error Red
+        alert(`Generation finished, but these rows failed:\n\n` + failedRows.join('\n'));
+      } else {
+        statusText.innerText = "Generation Complete!";
+        progressFill.style.backgroundColor = "#2B3990"; // Success Blue
+      }
     }
 
     function viewLogs() {
-      const webAppUrl = "https://script.google.com/macros/s/AKfycbwGFm3SUt0SxDXD-KID_CscdV9q9RGSikKVXtQhtebXE6IaNl4w3UhpdM9zyIoNWFXMqg/exec";
+      const webAppUrl = "https://script.google.com/macros/s/AKfycbzU4rmyjZ6MaXLkZh7xPKetJO3pn9cCBQfQ_wTONtIQJgK0YGDBHXSl_SAIyAT9xjbJGA/exec";
       window.open(webAppUrl, '_blank');
     }
   </script>

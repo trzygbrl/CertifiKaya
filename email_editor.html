@@ -108,6 +108,45 @@
       color: #6B7280;
       margin-top: 4px;
     }
+
+    .mention-dropdown {
+      display: none;
+      position: absolute;
+      background: white;
+      border: 1px solid #D1D5DB;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      max-height: 150px;
+      overflow-y: auto;
+      z-index: 1000;
+      width: 200px;
+    }
+
+    .mention-item {
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 1px solid #F3F4F6;
+    }
+
+    .mention-item:last-child {
+      border-bottom: none;
+    }
+
+    .mention-item:hover {
+      background: #F3F4F6;
+    }
+
+    .mention-block {
+      background: #E5E7EB;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+      font-size: 13px;
+      color: #374151;
+      display: inline-block;
+      margin: 0 2px;
+    }
   </style>
 </head>
 
@@ -127,7 +166,10 @@
       <button type="button" class="toolbar-btn" onclick="formatText('italic')" title="Italic"><i>I</i></button>
     </div>
     <div id="emailBody" contenteditable="true" class="rich-editor">Loading...</div>
-    <div class="help-text">The generated certificate file will automatically be attached to this email.</div>
+    <div class="help-text">
+      The generated certificate file will automatically be attached to this email.<br>
+      <strong style="color: #4F46E5;">Pro Tip:</strong> Type <strong>@/</strong> to quickly insert data columns (like names or roles) from your spreadsheet!
+    </div>
   </div>
 
   <div class="btn-container">
@@ -135,7 +177,12 @@
     <button class="btn btn-primary" onclick="saveEmail()">Save Draft</button>
   </div>
 
+  <div id="mentionDropdown" class="mention-dropdown"></div>
+
   <script>
+    let sheetHeaders = [];
+    let currentTarget = null;
+    let mentionStartIndex = -1;
     document.addEventListener('DOMContentLoaded', function () {
       google.script.run.withSuccessHandler(function (config) {
         if (config && config.emailDraft) {
@@ -152,6 +199,11 @@
           }
         }
       }).getGenerationConfig();
+
+      google.script.run.withSuccessHandler(function(headers) {
+        sheetHeaders = headers;
+        renderMentionDropdown();
+      }).getSheetHeaders();
     });
 
     function formatText(command) {
@@ -169,6 +221,132 @@
         google.script.host.close();
       }).saveEmailDraft(JSON.stringify(draft));
     }
+
+    function renderMentionDropdown() {
+      const dd = document.getElementById('mentionDropdown');
+      dd.innerHTML = '';
+      sheetHeaders.forEach(header => {
+        const div = document.createElement('div');
+        div.className = 'mention-item';
+        div.innerText = header;
+        div.onmousedown = (e) => {
+          e.preventDefault(); // Prevent losing focus from the editor
+          insertMention(header);
+        };
+        dd.appendChild(div);
+      });
+    }
+
+    function insertMention(header) {
+      if (!currentTarget) return;
+      const dd = document.getElementById('mentionDropdown');
+      dd.style.display = 'none';
+      const placeholder = `[${header}]`;
+
+      if (currentTarget.tagName === 'INPUT') {
+        const val = currentTarget.value;
+        const before = val.substring(0, mentionStartIndex);
+        const after = val.substring(currentTarget.selectionEnd);
+        currentTarget.value = before + placeholder + after;
+        currentTarget.focus();
+      } else if (currentTarget.id === 'emailBody') {
+        if (window.savedMentionRange) {
+          const range = window.savedMentionRange;
+          const textNode = range.startContainer;
+          if (textNode.nodeType === 3) {
+            const val = textNode.nodeValue;
+            const before = val.substring(0, mentionStartIndex);
+            const after = val.substring(mentionStartIndex + 2); // Text after '@/'
+            
+            textNode.nodeValue = before; // Leave text before cursor
+            
+            // Create chip
+            const chip = document.createElement('span');
+            chip.className = 'mention-block';
+            chip.contentEditable = "false";
+            chip.innerText = placeholder;
+            
+            // Insert chip and space
+            const parent = textNode.parentNode;
+            const nextNode = document.createTextNode(after);
+            
+            if (textNode.nextSibling) {
+              parent.insertBefore(chip, textNode.nextSibling);
+              parent.insertBefore(nextNode, chip.nextSibling);
+            } else {
+              parent.appendChild(chip);
+              parent.appendChild(nextNode);
+            }
+            
+            // Add a zero-width space or normal space after chip to help typing
+            const space = document.createTextNode('\u00A0');
+            parent.insertBefore(space, nextNode);
+            
+            const sel = window.getSelection();
+            const newRange = document.createRange();
+            newRange.setStart(space, 1);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+          }
+        }
+      }
+      
+      currentTarget = null;
+      mentionStartIndex = -1;
+      window.savedMentionRange = null;
+    }
+
+    function handleInput(e) {
+      const target = e.target;
+      let text = "";
+      let cursorPos = 0;
+      let rect = null;
+      
+      if (target.tagName === 'INPUT') {
+        text = target.value;
+        cursorPos = target.selectionStart;
+        rect = target.getBoundingClientRect();
+      } else if (target.id === 'emailBody') {
+        const sel = window.getSelection();
+        if (sel.rangeCount > 0 && sel.focusNode && sel.focusNode.nodeType === 3) {
+          text = sel.focusNode.nodeValue || "";
+          cursorPos = sel.focusOffset;
+          const range = sel.getRangeAt(0);
+          window.savedMentionRange = range.cloneRange();
+          const tempRect = range.getBoundingClientRect();
+          // Fallback to editor's rect if range rect is zero (can happen at empty lines)
+          if (tempRect.width === 0 && tempRect.height === 0) {
+             rect = target.getBoundingClientRect();
+          } else {
+             rect = tempRect;
+          }
+        }
+      }
+
+      const textBeforeCursor = text.substring(0, cursorPos);
+      if (textBeforeCursor.endsWith('@/')) {
+        currentTarget = target;
+        mentionStartIndex = cursorPos - 2;
+        
+        const dd = document.getElementById('mentionDropdown');
+        dd.style.display = 'block';
+        
+        if (target.tagName === 'INPUT') {
+          dd.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+          dd.style.left = (rect.left + window.scrollX) + 'px';
+        } else {
+          // Position relative to caret
+          dd.style.top = (rect.bottom + window.scrollY + 4) + 'px'; 
+          dd.style.left = (rect.left + window.scrollX) + 'px';
+        }
+      } else {
+        document.getElementById('mentionDropdown').style.display = 'none';
+      }
+    }
+
+    document.getElementById('emailSubject').addEventListener('input', handleInput);
+    document.getElementById('emailBody').addEventListener('input', handleInput);
   </script>
 </body>
 
