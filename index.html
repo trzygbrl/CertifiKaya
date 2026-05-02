@@ -305,6 +305,37 @@
       Column</button>
   </div>
 
+  <!-- File Name Configuration Section -->
+  <div class="card">
+    <div class="form-group">
+      <label>File Name Format</label>
+      <div id="fileNamePartsContainer" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
+        <div class="flex-row file-name-part">
+          <select class="fn-type-select" onchange="toggleFnInput(this)" style="width: 100px;">
+            <option value="column" selected>Column</option>
+            <option value="text">Text</option>
+          </select>
+          <select class="fn-col-select flex-1">
+            <option value="">Select Column...</option>
+          </select>
+          <input type="text" class="fn-text-input flex-1" placeholder="Static text (e.g. - Certificate)"
+            style="display: none;">
+        </div>
+      </div>
+      <button class="btn-secondary" onclick="addFileNamePart()" style="border-style: dashed;">+ Add Part</button>
+      <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px; line-height: 1.4; text-transform: none;">
+        Construct the file name by combining columns and static text. Example: [Participant Name] - Certificate.</p>
+      <div
+        style="margin-top: 12px; padding: 10px; background: #E0E7FF; border-radius: 6px; border: 1px dashed #2B3990;">
+        <span style="font-size: 11px; font-weight: 600; color: #2B3990; text-transform: uppercase;">File Name
+          Preview:</span>
+        <div id="fileNamePreview"
+          style="font-size: 13px; font-weight: 500; color: #1E293B; margin-top: 4px; word-break: break-all;">
+          [Participant Name]_Certificate.pdf</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Design Section -->
   <div class="card">
     <div class="form-group">
@@ -438,6 +469,67 @@
         emailSelect.add(new Option(header, header));
         collegeSelect.add(new Option(header, header));
       });
+
+      const fnSelects = document.querySelectorAll('.fn-col-select');
+      fnSelects.forEach(sel => {
+        sel.innerHTML = '<option value="">Select Column...</option>';
+        headers.forEach(h => sel.add(new Option(h, h)));
+      });
+      updateFileNamePreview();
+    }
+
+    function updateFileNamePreview() {
+      const parts = [];
+      document.querySelectorAll('.file-name-part').forEach(part => {
+        const type = part.querySelector('.fn-type-select').value;
+        if (type === 'column') {
+          const col = part.querySelector('.fn-col-select').value;
+          if (col) parts.push(`[${col}]`);
+        } else {
+          parts.push(part.querySelector('.fn-text-input').value);
+        }
+      });
+      let previewStr = parts.join('').trim();
+      if (!previewStr) previewStr = "[Participant Name]_Certificate";
+      const ext = document.getElementById('formatSelect').value || 'pdf';
+      document.getElementById('fileNamePreview').innerText = previewStr + "." + ext;
+    }
+
+    function addFileNamePart() {
+      const container = document.getElementById('fileNamePartsContainer');
+      const div = document.createElement('div');
+      div.className = 'flex-row file-name-part';
+
+      let optionsHtml = '<option value="">Select Column...</option>';
+      if (window.sheetHeaders) {
+        window.sheetHeaders.forEach(h => optionsHtml += `<option value="${h}">${h}</option>`);
+      }
+
+      div.innerHTML = `
+        <select class="fn-type-select" onchange="toggleFnInput(this)" style="width: 100px;">
+          <option value="column">Column</option>
+          <option value="text">Text</option>
+        </select>
+        <select class="fn-col-select flex-1">${optionsHtml}</select>
+        <input type="text" class="fn-text-input flex-1" placeholder="Static text..." style="display: none;">
+        <button class="btn-secondary" style="width: auto; padding: 10px; color: #EF4444; border-color: #EF4444;" onclick="this.parentElement.remove(); updateFileNamePreview();">✖</button>
+      `;
+      container.appendChild(div);
+      updateFileNamePreview();
+    }
+
+    function toggleFnInput(select) {
+      const parent = select.parentElement;
+      const colSelect = parent.querySelector('.fn-col-select');
+      const textInput = parent.querySelector('.fn-text-input');
+      if (select.value === 'text') {
+        colSelect.style.display = 'none';
+        textInput.style.display = 'block';
+      } else {
+        colSelect.style.display = 'block';
+        textInput.style.display = 'none';
+      }
+      updateFileNamePreview();
     }
 
     function addDynamicColumn() {
@@ -578,6 +670,10 @@
         this.style.fontFamily = this.value;
       }
     });
+
+    document.getElementById('fileNamePartsContainer').addEventListener('change', updateFileNamePreview);
+    document.getElementById('fileNamePartsContainer').addEventListener('input', updateFileNamePreview);
+    document.getElementById('formatSelect').addEventListener('change', updateFileNamePreview);
 
     document.getElementById('customFontFile').addEventListener('change', async function (e) {
       const file = e.target.files[0];
@@ -781,6 +877,21 @@
         const row = data[i];
         const participantName = row[nameCol] || "Unknown Participant";
         const participantEmail = row[emailCol] || "";
+
+        const fnParts = [];
+        document.querySelectorAll('.file-name-part').forEach(part => {
+          const type = part.querySelector('.fn-type-select').value;
+          if (type === 'column') {
+            const col = part.querySelector('.fn-col-select').value;
+            if (col && row[col]) fnParts.push(row[col]);
+          } else {
+            const txt = part.querySelector('.fn-text-input').value;
+            if (txt) fnParts.push(txt);
+          }
+        });
+
+        let constructedFileName = fnParts.join('').trim();
+        if (!constructedFileName) constructedFileName = participantName + "_Certificate";
         const collegeProgram = (collegeCol && row[collegeCol]) ? row[collegeCol] : "N/A";
 
         const extraData = {};
@@ -840,6 +951,7 @@
           base64Data: dataUrl,
           format: format,
           participantName: participantName,
+          customFileName: constructedFileName,
           participantEmail: participantEmail,
           collegeProgram: packedCollege,
           subject: emailDraft.subject,
@@ -868,7 +980,7 @@
     }
 
     function viewLogs() {
-      const webAppUrl = "https://script.google.com/macros/s/AKfycbz6W_DmT-OK6HnAcUvtrf4xfdRnTSsx11k-19AZVL1FnMZhFrgVb-fOkeD3imQWxe627A/exec";
+      const webAppUrl = "https://script.google.com/macros/s/AKfycbwGFm3SUt0SxDXD-KID_CscdV9q9RGSikKVXtQhtebXE6IaNl4w3UhpdM9zyIoNWFXMqg/exec";
       window.open(webAppUrl, '_blank');
     }
   </script>

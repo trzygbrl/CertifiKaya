@@ -72,6 +72,8 @@
     th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; color: #4B5563; text-transform: uppercase; }
     td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #F3F4F6; }
     tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background-color 0.2s ease; }
+    tbody tr:hover { background-color: #EBF4FF; }
     .status-sent { color: #065F46; background: #D1FAE5; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
     .status-failed { color: #991B1B; background: #FEE2E2; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
     .status-pending { color: #92400E; background: #FEF3C7; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
@@ -99,6 +101,7 @@
     </div>
 
     <div class="content">
+      <div id="notificationsContainer"></div>
       <div class="nav-tabs" id="mainTabs">
         <button class="tab-btn active" onclick="switchTab('events', this)">Events</button>
         <button class="tab-btn" onclick="switchTab('templates', this)">Certificates Template</button>
@@ -137,14 +140,14 @@
             </select>
           </div>
         </div>
-        <div class="grid" id="eventsGrid">
+        <div id="eventsGrid">
           <p>Loading events...</p>
         </div>
       </div>
 
       <!-- TEMPLATES VIEW -->
       <div id="view-templates" class="view">
-        <div class="grid" id="templatesGrid">
+        <div id="templatesGrid">
           <p>Loading templates...</p>
         </div>
       </div>
@@ -233,8 +236,36 @@
 
     function loadAllData() {
       google.script.run.withSuccessHandler(data => { allLogs = data; updateCurrentEventDetails(); }).fetchAllGenerationLogs();
-      google.script.run.withSuccessHandler(data => { allEvents = data; renderEvents(); }).fetchAllEvents();
+      google.script.run.withSuccessHandler(data => { allEvents = data; renderEvents(); renderNotifications(); }).fetchAllEvents();
       google.script.run.withSuccessHandler(data => { allTemplates = data; renderTemplates(); }).fetchAllTemplates();
+    }
+
+    function renderNotifications() {
+      const container = document.getElementById('notificationsContainer');
+      container.innerHTML = '';
+      
+      const now = new Date();
+      const threeYearsMs = 3 * 365.25 * 24 * 60 * 60 * 1000;
+      
+      const oldEvents = allEvents.filter(e => {
+        if (!e.date) return false;
+        const eDate = new Date(e.date);
+        return (now - eDate) >= threeYearsMs;
+      });
+      
+      if (oldEvents.length > 0) {
+        oldEvents.forEach(e => {
+          const div = document.createElement('div');
+          div.style = 'background: #FEF2F2; border-left: 4px solid #EF4444; padding: 12px 16px; margin-bottom: 12px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.05);';
+          div.innerHTML = `
+            <div style="flex: 1; padding-right: 16px;">
+              <strong style="color: #991B1B; font-size: 14px;">Reminder: Event "${e.name}" is over 3 years old!</strong>
+              <p style="color: #B91C1C; margin: 4px 0 0 0; font-size: 13px;">This event took place on ${e.date}. Please move the files to an external hard drive. This reminder will disappear once the event is deleted from the dashboard.</p>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      }
     }
 
     function switchTab(tabId, btn) {
@@ -282,27 +313,38 @@
         grid.innerHTML = '<p>No events found.</p>';
         return;
       }
+
+      let html = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Event Name</th>
+                <th>Event Date</th>
+                <th>Template</th>
+                <th>Created By</th>
+                <th style="width: 80px; text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
       filteredEvents.forEach(ev => {
-        const div = document.createElement('div');
-        div.className = 'card';
-        div.onclick = (e) => {
-          if (!e.target.closest('.delete-btn')) {
-            openEventDetails(ev);
-          }
-        };
-        div.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <h3 class="card-title">${ev.name}</h3>
-            <button class="delete-btn" onclick="deleteEventRecord(${ev.id}, this)" style="background:none; border:none; color:#EF4444; cursor:pointer; font-size:16px;" title="Delete Event">✖</button>
-          </div>
-          <p class="card-subtitle">${ev.date}</p>
-          <div class="card-meta">
-            <span><span>Template:</span> <strong>${ev.template || 'N/A'}</strong></span>
-            <span><span>Created By:</span> <strong>${ev.createdBy || 'Unknown'}</strong></span>
-          </div>
+        html += `
+          <tr style="cursor: pointer;" onclick="if(!event.target.closest('.action-btn')) openEventDetails({id:${ev.id}, name:'${ev.name.replace(/'/g, "\\'")}', date:'${ev.date}', template:'${(ev.template || '').replace(/'/g, "\\'")}'})">
+            <td style="font-weight: 500;">${ev.name}</td>
+            <td>${ev.date}</td>
+            <td>${ev.template || 'N/A'}</td>
+            <td>${ev.createdBy || 'Unknown'}</td>
+            <td style="text-align: center;">
+              <button class="action-btn" onclick="deleteEventRecord(${ev.id}, this.closest('tr'))" style="background:none; border:none; color:#EF4444; cursor:pointer; font-size:16px;" title="Delete Event">✖</button>
+            </td>
+          </tr>
         `;
-        grid.appendChild(div);
       });
+      
+      html += `</tbody></table></div>`;
+      grid.innerHTML = html;
     }
 
     function renderTemplates() {
@@ -312,22 +354,40 @@
         grid.innerHTML = '<p>No templates found.</p>';
         return;
       }
+      
+      let html = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Template Name</th>
+                <th>Upload Date</th>
+                <th>Uploaded By</th>
+                <th>File Link</th>
+                <th style="width: 80px; text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
       allTemplates.forEach(t => {
-        const div = document.createElement('div');
-        div.className = 'card';
-        div.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <h3 class="card-title">${t.name}</h3>
-            <button class="delete-btn" onclick="deleteTemplateRecord(${t.id}, this)" style="background:none; border:none; color:#EF4444; cursor:pointer; font-size:16px;" title="Delete Template">✖</button>
-          </div>
-          <p class="card-subtitle">${t.date ? new Date(t.date.replace(' ', 'T')).toLocaleString() : ''}</p>
-          <div class="card-meta">
-            <span><span>Uploaded By:</span> <strong>${t.uploadedBy || 'Unknown'}</strong></span>
-          </div>
-          ${t.link ? `<a href="${t.link}" target="_blank" class="link" style="display:block; margin-top:12px;">View in Drive →</a>` : ''}
+        const d = t.date ? new Date(t.date.replace(' ', 'T')).toLocaleString() : '';
+        const linkHtml = t.link ? `<a href="${t.link}" target="_blank" class="link action-btn">View in Drive</a>` : 'N/A';
+        html += `
+          <tr>
+            <td style="font-weight: 500;">${t.name}</td>
+            <td>${d}</td>
+            <td>${t.uploadedBy || 'Unknown'}</td>
+            <td>${linkHtml}</td>
+            <td style="text-align: center;">
+              <button class="action-btn" onclick="deleteTemplateRecord(${t.id}, this.closest('tr'))" style="background:none; border:none; color:#EF4444; cursor:pointer; font-size:16px;" title="Delete Template">✖</button>
+            </td>
+          </tr>
         `;
-        grid.appendChild(div);
       });
+      
+      html += `</tbody></table></div>`;
+      grid.innerHTML = html;
     }
 
     function openEventDetails(ev) {
@@ -505,18 +565,23 @@
     function deleteEventRecord(eventId, btn) {
       if (!confirm("Are you sure you want to delete this event? This will also delete all associated logs and participant records.")) return;
       
-      const card = btn.closest('.card');
-      card.style.opacity = '0.5';
-      card.style.pointerEvents = 'none';
+      const card = btn.closest('tr') || btn.closest('.card');
+      if (card) {
+        card.style.opacity = '0.5';
+        card.style.pointerEvents = 'none';
+      }
       
       google.script.run.withSuccessHandler(success => {
         if (success) {
-          card.remove();
+          if (card) card.remove();
           allEvents = allEvents.filter(e => e.id !== eventId);
+          renderNotifications();
         } else {
           alert("Failed to delete event.");
-          card.style.opacity = '1';
-          card.style.pointerEvents = 'auto';
+          if (card) {
+            card.style.opacity = '1';
+            card.style.pointerEvents = 'auto';
+          }
         }
       }).deleteEvent(eventId);
     }
@@ -524,18 +589,22 @@
     function deleteTemplateRecord(templateId, btn) {
       if (!confirm("Are you sure you want to delete this template? This will permanently delete it from the database AND Google Drive.")) return;
       
-      const card = btn.closest('.card');
-      card.style.opacity = '0.5';
-      card.style.pointerEvents = 'none';
+      const card = btn.closest('tr') || btn.closest('.card');
+      if (card) {
+        card.style.opacity = '0.5';
+        card.style.pointerEvents = 'none';
+      }
       
       google.script.run.withSuccessHandler(success => {
         if (success) {
-          card.remove();
+          if (card) card.remove();
           allTemplates = allTemplates.filter(t => t.id !== templateId);
         } else {
           alert("Failed to delete template.");
-          card.style.opacity = '1';
-          card.style.pointerEvents = 'auto';
+          if (card) {
+            card.style.opacity = '1';
+            card.style.pointerEvents = 'auto';
+          }
         }
       }).deleteTemplate(templateId);
     }

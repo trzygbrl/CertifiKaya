@@ -94,14 +94,15 @@ function saveEmailDraft(draftStr) {
 
 // Main processing function called sequentially by the frontend
 function processAndSaveCertificate(payload) {
-  const { base64Data, format, participantName, participantEmail, collegeProgram, subject, body, eventId, eventName, eventDate } = payload;
+  const { base64Data, format, participantName, customFileName, participantEmail, collegeProgram, subject, body, eventId, eventName, eventDate } = payload;
 
   // 1. Process base64 back into a file blob
   const dataParts = base64Data.split(',');
   const bytes = Utilities.base64Decode(dataParts[1] || dataParts[0]);
 
   const mimeType = format === 'pdf' ? 'application/pdf' : (format === 'png' ? 'image/png' : 'image/jpeg');
-  const blob = Utilities.newBlob(bytes, mimeType, `${participantName}_Certificate.${format}`);
+  const finalFileName = customFileName ? `${customFileName}.${format}` : `${participantName}_Certificate.${format}`;
+  const blob = Utilities.newBlob(bytes, mimeType, finalFileName);
 
   // 2. Save to Drive into a structured Event folder
   const folderName = `${eventName} (${eventDate})`;
